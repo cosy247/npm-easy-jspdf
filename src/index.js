@@ -32,11 +32,11 @@ export default class EasyPDF {
   #color = [10, 10, 10];
 
   /* 内容区宽度 */
-  get clientWidth() {
+  get #clientWidth() {
     return this.#pageWidth - this.#pagePaddingX * 2;
   }
   /* 内容区高度 */
-  get clientHeight() {
+  get #clientHeight() {
     return this.#pageHeight - this.#pagePaddingY * 2;
   }
 
@@ -127,7 +127,7 @@ export default class EasyPDF {
       this.#writeY += this.#lastLineHeight;
     }
     // 当前行剩余宽度
-    const remainWidth = this.clientWidth - this.#writeX - options.left - this.#pagePaddingX;
+    const remainWidth = this.#clientWidth - this.#writeX - options.left - this.#pagePaddingX;
     // 分隔第一行
     let firstLine = '';
     let firstWidth = 0;
@@ -143,7 +143,7 @@ export default class EasyPDF {
     this.#writeX += firstWidth;
     // 分隔剩下的文本行
     if (firstLine.length !== text.length) {
-      const splitText = this.#pdf.splitTextToSize(text.slice(firstLine.length), this.clientWidth);
+      const splitText = this.#pdf.splitTextToSize(text.slice(firstLine.length), this.#clientWidth);
       for (let index = 0; index < splitText.length; index++) {
         const text = splitText[index];
         this.#writeY += lineHeight;
@@ -163,7 +163,7 @@ export default class EasyPDF {
       this.#writeY += lineHeight;
     } else {
       this.#writeX += options.right;
-      if (this.#writeX > this.clientWidth + this.#pageIndex) {
+      if (this.#writeX > this.#clientWidth + this.#pageIndex) {
         this.#writeX = this.#pagePaddingX;
         this.#writeY += lineHeight;
       }
@@ -221,6 +221,45 @@ export default class EasyPDF {
     );
     this.#writeY += options.top + options.lineWidth + options.bottom;
     return this;
+  }
+
+  /**
+   * 向 PDF 文档添加图像。
+   *
+   * @param {string} img - 要添加的图像。
+   * @param {Object} options - 添加图像的选项。
+   * @param {number} [options.top=4] - 图像的上边距。
+   * @param {number} [options.bottom=4] - 图像的下边距。
+   * @param {number} [options.width=this.#clientWidth] - 图像的宽度。
+   * @param {number|string} [options.height='auto'] - 图像的高度。如果为 'auto'，则高度将根据宽高比进行计算。
+   * @param {string} [options.format='PNG'] - 图像的格式。
+   */
+  addImage(img, options) {
+    options = {
+      top: 4,
+      bottom: 4,
+      width: this.#clientWidth,
+      height: 'auto',
+      format: 'PNG',
+      ...options,
+    };
+    // 是否高度自适应
+    let height = options.height;
+    if (height === 'auto') {
+      const imgProperties = this.#pdf.getImageProperties(img);
+      height = (options.width * imgProperties.height) / imgProperties.width;
+    }
+    // 判断是否为新行
+    if (this.#writeX !== this.#pagePaddingX) {
+      this.#writeX = this.#pagePaddingX;
+      this.#writeY += this.#lastLineHeight;
+    }
+    // 添加图片
+    this.#writeX = (this.#pageWidth - options.width) / 2;
+    this.#checkWriteY(height);
+    this.#pdf.addImage(img, 'PNG', this.#writeX, this.#writeY, options.width, height); // 添加图像到 PDF 文档
+    this.#writeX = this.#pagePaddingX;
+    this.#writeY += height;
   }
 
   /**
